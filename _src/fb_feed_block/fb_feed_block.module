@@ -1,0 +1,218 @@
+<?php
+
+/**
+ *  @file
+ *  Collect the titles from a Feed Item node via FB RSS feed import and display them in a block.
+ */
+ 
+ /**
+ * Implements hook_menu().
+ */
+function fb_feed_block_menu() {
+  $items['admin/config/content/fb_feed_block'] = array(
+    'title' => 'Facebook Feed Block Settings',
+    'description' => 'Administer the Facebook Feed Block settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_feed_block_settings_form'),
+    'access arguments' => array('manage facebook feed block settings'),
+    'file' => 'fb_feed_block.admin.inc',
+  );
+  $items['admin/reports/fb_feed_block'] = array(
+    'title' => 'Facebook Feed Block Posts',
+    'description' => 'View all the Facebook Feed imported posts.',
+    'page callback' => 'fb_feed_block_posts',
+    'access arguments' => array('view facebook feed block posts'),
+    'file' => 'fb_feed_block.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function fb_feed_block_permission() {
+  return array(
+    'view facebook feed block posts' => array(
+      'title' => t('View Facebook Feed Block Posts'),
+      'description' => t('View all the Facebook Feed imported posts on the main FB posts page.'),
+    ),
+    'change RSS feed used in facebook feed' => array(
+      'title' => t('Change the RSS feed used in the Facebook Feed'),
+      'description' => t('Add new RSS feed to be imported.'),
+    ),
+    'manage facebook feed block settings' => array(
+      'title' => t('Manage Facebook Feed settings'),
+      'description' => t('Allow user to manage the Facebook Feed block settings page.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ * 
+ * Adds a checkbox to the Feeds Item nodes to allow for the specific feed item to be shown in the Facebook Feed block
+ * 
+ */
+function fb_feed_block_form_node_form_alter(&$form, $form_state, $form_id) {
+	//dsm($form_id);  // print form ID to messages
+	$node = $form['#node'];
+	//Perform our check to see if we should be performing an action
+	$types = variable_get('fb_feed_block_types', array());
+	//Check if this node type is enabled for the FB Feeds Block
+	//and that the user has access to the per-node settings
+	if ($types[$node->type] && user_access('manage facebook feed block settings')) {
+		//Add a new fieldset with a checkbox for per-node setting.
+		$form['fb_feed_block'] = array(
+		'#title'=> t('FB Feed Block'),
+		'#type' => 'fieldset',
+		'#collapsible' => TRUE,
+		'#collapsed' => FALSE,
+		'#group' => 'additional_settings',
+		);
+		$form['fb_feed_block']['fb_feed_block_enabled'] = array(
+		'#title' => t('Allow this node to be posted to the FB Block'),
+		'#type' => 'checkbox',
+		'#default_value' => isset($node->fb_feed_block_enabled) ? $node->fb_feed_block_enabled : FALSE,
+		);
+	}
+}
+
+/**
+ * Implements hook_node_load().
+ */
+
+function fb_feed_block_node_load($nodes, $types) {
+	foreach ($nodes as $nid => $node) {
+		//Add fb_feed_block data to the node object when it is loaded.
+		$node->fb_feed_block_enabled = fb_feed_block_get_node_enabled($node->nid);
+	}
+}
+
+/**
+ * Implements hook_node_insert
+ */
+function fb_feed_block_node_insert($node) {
+	if($node->fb_feed_block_enabled) {
+		//If FB Feed Block is enabled, store the record.
+		fb_feed_block_set_node_enabled($node->nid);
+	}
+}
+
+/**
+ * Implements hook_node_update()
+ */
+function fb_feed_block_node_update($node) {
+	//Delete the old record, if one exists.
+	fb_feed_block_delete_node_enabled($node->nid);
+	if($node->fb_feed_block_enabled) {
+		// If FB Feed Block is enabled, store the record.
+		fb_feed_block_set_node_enabled($node->nid);
+	}
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function fb_feed_block_node_delete($node) {
+	// Delete the record when the node is deleted.
+	fb_feed_block_delete_node_enabled($node->nid);
+}
+
+/**
+ * Determine if a node is set
+ * 
+ * @param int $nid
+ *  The node id of the node in question.
+ * 
+ * @return Boolean
+ */
+function fb_feed_block_get_node_enabled($nid) {
+	if (is_numeric($nid)) {
+		$result = db_query("SELECT nid FROM {fb_feed_block_enabled} WHERE nid = :nid", array('nid' => $nid))->fetchField();
+		if($result) {
+ 	      return TRUE;
+      }	
+	  }
+	 return FALSE;
+}
+
+/**
+ * Add an entry for a node's FB Feed Block setting.
+ * 
+ * @param int $nid
+ *   The node id of the node in question
+ */
+function fb_feed_block_set_node_enabled($nid) {
+	if (is_numeric($nid)) {
+		if (!fb_feed_block_get_node_enabled($nid)) {
+			$jump = db_insert('fb_feed_block_enabled')
+			 ->fields(array('nid' => $nid))
+			 ->execute();
+		}
+	}
+}
+
+/** 
+ * Remove an entry for a node's FB Feed Block setting.
+ * 
+ * @param int $nid
+ *   The node id of the node in question.
+ */
+function fb_feed_block_delete_node_enabled($nid) {
+	if(is_numeric($nid)) {
+		$vump = db_delete('fb_feed_block_enabled')
+		 ->condition('nid', $nid)
+		 ->execute();
+	}
+}
+
+/**
+ * This hook defines the Block info that shows the block on the main Drupal blocks admin screen
+ * 
+ */
+ 
+function fb_feed_block_block_info() {
+  // This example comes from node.module.
+  $block['posts'] = array(
+    'info' => t('Facebook Posts'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  return $block;
+}
+
+/**
+ * Implementation of hook_block_view
+ * 
+ */
+
+function fb_feed_block_block_view($delta = '') {
+	switch ($delta) {
+		case 'posts':
+			$block['subject'] = t('Facebook Feed Block Posts');
+			$block['content'] = fb_feed_block_block_contents($delta);
+			return $block;	
+			break;
+	}
+}
+
+/**
+ * Custom function called by hook_block_view to display our block content
+ * 
+ */
+
+function fb_feed_block_block_contents($delta = '') {
+
+  switch ($delta) {
+    case 'posts':
+      if (user_access('access content')) {
+      	//if($node->fb_feed_block_enabled) {
+        $result = db_query("SELECT nid, title, type FROM {node} WHERE type = 'feed_item'");
+				$items = array();
+				foreach ($result as $row) {
+					$items[] = l($row->title, 'node/' .$row->nid. '/');
+				}
+          return array('#markup' => theme('item_list', array('items' => $items)));
+        }
+			break;
+    }
+}

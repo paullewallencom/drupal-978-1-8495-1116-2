@@ -1,0 +1,51 @@
+<?php
+
+/**
+ * @file
+ * Tests for fb_feed_block.module.
+ */
+
+class FbFeedBlockTestCase extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Fb Feed Block functionality',
+      'description' => 'Test the Fb Feed Block settings form functionality.',
+      'group' => 'Other',
+    );
+  }
+
+  /**
+   * Enable modules and create users with specific permissions.
+   */
+  function setUp() {
+    parent::setUp('fb_feed_block');
+    // Create users.
+    $this->admin_user = $this->drupalCreateUser(array(
+      'manage facebook feed block settings',
+      'create page content',
+    ));
+    //$this->web_user = $this->drupalCreateUser(array());
+  }
+
+  /**
+   * Tests FB Feed Block settings form
+   */
+  function testFbFeedBlockSettings() {
+  	//Login as admin user
+    $this->drupalLogin($this->admin_user);
+
+    // Check that no FB Feed Block settings appear on the Basic Page node edit form.
+    $this->drupalGet('node/add/page');
+    $this->assertNoText(t('Allow this node to be posted to the FB Block'), 'The FB Feed Block settings were not found.');
+
+    // Change the settings to enable FB Feed Block on pages.
+    $edit = array('fb_feed_block_types[page]' => TRUE);
+		//$edit = array();
+    $this->drupalPost('admin/config/content/fb_feed_block', $edit, t('Save configuration'));
+		//Check that the FB Feed Block settings appear when creating a new page
+    $this->drupalGet('node/add/page');
+    $this->assertText(t('Allow this node to be posted to the FB Block'), 'The FB Feed Block settings were not found.');
+
+  }
+ }

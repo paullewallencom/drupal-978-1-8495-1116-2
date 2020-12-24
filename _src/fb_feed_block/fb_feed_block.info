@@ -1,0 +1,11 @@
+name = Facebook Feed Block
+description = Provides a block that shows imported posts from a Facebook Feed
+core = 7.x
+package = Other
+version = 1.x-dev
+configure = admin/config/content/fb_feed_block
+dependencies[] = block
+dependencies[] = feeds
+files[] = fb_feed_block.module
+files[] = fb_feed_block.admin.inc
+files[] = fb_feed_block.test

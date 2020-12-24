@@ -1,0 +1,69 @@
+<?php
+
+/**
+ *  @file
+ *  Defines and manages the Facebook Feed module schema.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+
+function fb_feed_block_schema() {
+  $schema['fb_feed_block'] = array(
+    'description' => 'The base table for the Facebook Feeds Block module.', 
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for the entry.', 
+        'type' => 'serial', 
+        'unsigned' => TRUE, 
+        'not null' => TRUE,
+      ), 
+      'uid' => array(
+        'description' => 'The {users}.uid that added the entry.', 
+        'type' => 'int',  
+        'not null' => TRUE,
+        'default' => 0,
+      ), 
+      'nid' => array(
+        'description' => 'The {node}.nid that this entry was added on.', 
+        'type' => 'int',  
+        'not null' => TRUE,
+        'default' => 0,
+      ), 
+      'created' => array(
+        'type' => 'int', 
+        'not null' => TRUE, 
+        'default' => 0,
+        'description' => 'Timestamp for when the FB Feed Block module data was created.'
+      ), 
+    ), 
+    'primary key' => array('id'),
+    'indexes' => array(
+      'node' => array('nid'), 
+      'node_user' => array('nid', 'uid'),
+    ), 
+  );
+  $schema['fb_feed_block_enabled'] = array(
+  'description' => 'Tracks whether FB Feeds Block is enabled for a given node.',
+  'fields' => array(
+    'nid' => array(
+      'description' => 'The {node}.nid that has FB Feed Block enabled.',
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+      ),
+      ),
+     'primary key' => array('nid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+ function fb_feed_block_uninstall() {
+ 	drupal_uninstall_schema('fb_feed_block');
+    variable_del('fb_feed_block_types');
+    variable_del('fb_feed_block_maxposts');
+}
